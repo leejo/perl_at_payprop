@@ -45,6 +45,8 @@ Lee Johnson (LEEJO / leejo / lee@payprop.com)
 
 ???
 
+Thank Theo for organising the CFP and such
+
 ---
 
 ## About Me
@@ -125,41 +127,725 @@ Our work event has always clashed, but not this year
 
 ## About PayProp
 
+![payprop](img/payprop.png)
 
+???
+
+We're a payment and reconciliation platform for the residential lettings industry
+
+---
+
+## About PayProp
+
+```sh
+{1:F0110022136XXXX5294000001}
+{4:
+:20:FTT0047457610001
+:25:000028078114
+:28C:00001
+:34F:CAD0,00
+:13D:2312251501-0500
+:61:2312271222C12841,47NTRF_//17
+:86:PREAUTH CREDIT
+BAM BAT1211     BUSINESS PAD
+TN0102004200150561169205
+-}
+```
+
+???
+
+We automate their incoming and outgoing payment flow
+
+Turning things like this
+
+---
+
+## About PayProp
+
+![payprop](img/unreconciled.png)
+
+???
+
+Into things like this
+
+We put interfaces and automation on time consuming payment flows
+
+Saving customers hours or days of previously manual work
+
+The keen eyed of you will see the cgi-bin in that URL...
+
+We've been around for over 20 years so have some old code in places
 
 ---
 
 ## Which Perl?
 
+--
+
+* 5.32
+
+???
+
+We build our own
+
+We don't do anything special there
+
+We *could* in theory compile with special flags, but we don't
+
+So we get the defaults, which means no ithreads (most Linux dists configure with threading enabled)
+
+The key is that it's (next slide)
+
+--
+
+* Not the system Perl
+
+???
+
+So we're not tied to any particular version of the OS
+
+Can apply security patches and updates as necessary
+
+Yes we should be on 5.38 by now, but tend to trail a version
+
+--
+
+* Gives dependency control
+
+???
+
+This is critical
+
+--
+
+* Loose coupling
+
+???
+
+OS upgrades and migrations are much easier
+
+--
+
+* Everywhere!
+
+???
+
+DEV -> CI -> staging -> demo -> PROD
+
+otherwise you're going to have problems
+
+--
+
+
+* Issues/Challenges?
+ * "You still use Perl?" (Hiring)
+ * "What is Perl?" (Hiring)
+ * Bus factor(s)
+
+???
+
+I'm sure you've encountered these as well
+
 ---
 
 ## CGI.pm -> Mojolicious
+
+???
+
+A 20 year app has some legacy
+
+Bit of an understatement perhaps
+
+--
+
+* An ongoing task - about 2/3 complete
+
+???
+
+But it's a long tail
+
+And we have some pages that will likely never be ported and will be turned off
+
+Replaced by other newer pages / data warehouse stuff
+
+--
+
+* [Mojolicious::Plugin::CGI](https://metacpan.org/pod/Mojolicious::Plugin::CGI)
+
+???
+
+We used this in another platform but decided against it for PayProp
+
+we're using apache anyway so just use that as a proxy for any non cgi-bin routes
+
+--
+
+* Static assets: Apache
+
+* `/cgi-bin/`: Apache (`ExecCGI`)
+
+* Anything else: proxy to Mojolicious server (`hypnotoad`)
+
+--
+
+* Previous talk: [Using Mojolicious For Fun & Non-Profit](http://leejo.github.io/using_mojolicious_for_fun_and_nonprofit/#/)
+
+???
+
+No video recording unfortunately
+
+Written in 2014 and Mojolicious has moved on quite a bit
+
+--
+
+
+* Issues/Challenges?
+ * Mojolicious moves fast
+ * They don't do backwards compatibility
+ * Commit messages are very poor
+
+???
+
+although it's slowed down in the last couple of years
+
+they claim "you can always count on backwards compatibility", but they have a 3 month deprecation window to change or *remove* features in non compatible ways. So, sorry, no you don't do backwards compatibility.
+
+which compounds debugging attempts. a recent example (Aug 2023):
+
+"Deprecate Mojo::File::spurt in favor of Mojo::File::spew"
+ - that's the *entire* commit message
+ - breaks backwards compatibility (when it's removed)
+ - i'm sure there's a massively compelling reason to rename a poorly named public method to another poor name, even though that's been in the framework since 2012
+ - so tell us why in the commit message *PLEASE*
+ - otherwise it's pointless churn that breaks other people's code
+
+I should summarise this rant with the caveat that Mojolicious is still an excellent framework
 
 ---
 
 ## Adding an ORM
 
+* I know this can be a contentious issue
+
+???
+
+Which i find surprising
+
+--
+
+* I'm tired of writing stuff like (simplified):
+
+```perl
+my $sql = "SELECT foo, bar, baz FROM property WHERE id = ?";
+
+my $sth = $dbh->prepare_cached( $sql )
+	|| die "Can't prepare $sql: $DBI::errstr";
+$sth->execute( $id );
+
+if ( my $row = $sth->fetchrow_hashref ) {
+	say $row->{foo};
+}
+
+```
+
+???
+
+About the simplest use case you can have with DBI
+
+--
+
+* I much prefer:
+
+```perl
+if ( my $Property = $ORM->resultset( 'Property' )->find( $id ) ) {
+	say $Property->foo;
+}
+```
+
+???
+
+I have no aversion to SQL
+
+I just prefer not to code all the stuff we can get for free
+
+If we need or want to drop down to vanilla SQL we can still do that
+
+And we still do that for some of the more hairy queries
+
 ---
 
-## Business Objects
+## Adding an ORM
+
+* Allows us to address/hide some of the legacy issues in the schema:
+ * Polymorphic relationships
+ * Lack of foreign key constraints
+ * Poor choice of data types
+ * Confusing table/column names
+
+???
+
+Obviously this is a means to an end of eventually fixing the schema
+
+And we need to keep the technical debt contained
+
+--
+
+
+* "Fix your underlying schema, things will break. Good. You might see it."
+
+???
+
+Stuff HN Says
+
+"Might?"
+
+Er, no - let's not risk a WFIO (google it) moment to satisfy an ideal
+
+--
+
+
+* Sure we could abstract that into our own libraries and modules
+ * But then we end up with a half done ORM
+ * Full of the bugs/issues other frameworks have already ironed out
+
+???
+
+But then we've just written our own ORM
+
+We avoid Not-Invented Here as much as possible.
+
+--
+
+
+* We are using [DBIx::Class](https://metacpan.org/pod/DBIx::Class) as our ORM.
+
+???
+
+It's an feature rich and very flexible distribution
+
+And it's not dogmatic about its use
+
+--
+
+
+* Issues/Challenges?
+ * Learning Curve
+ * Currently unmaintained
+ * Previous talk: [Battling a Legacy Schema With DBIx::Class](http://leejo.github.io/battling_a_legacy_schema_with_dbic/#/) ([Video](https://www.youtube.com/watch?v=ltckzIJYwHg))
+
+???
+
+ORMs are a paradigm shift
+
+There's discussion to address the maintenance concern
+
+A much longer talk with examples and tips
 
 ---
 
-## Refactoring
+## Business Objects / Model
+
+???
+
+The older code is a procedural mashup of business logic, database access (SQL), view logic (via custom templates), and so on
+
+The newer code is factored into business objects
+
+Note that *THIS* is our model, the ORM is *NOT* our model
+
+--
+
+* Classes
+ * Abstract
+ * Derived (polymorphism)
+* Attribute type constraints
+* Type coercion
+* Encapsulation
+* Composition (roles)
+* Immutable state
+* Delegation
+* Tell, Don't Ask
+
+--
+
+
+* [Moose](https://metacpan.org/pod/Moose)
+
+???
+
+We're using Moose (and previously Mouse) for our object framework
+
+---
+
+## Business Objects / Model
+
+```perl
+package PayProp::Model::Payment::Incoming;
+
+...
+
+has [ qw/ statement reversal / ] => (
+    is       => 'ro',
+    isa      => 'BankStatement',
+    required => 0,
+);
+```
+
+???
+
+As an example we have an incoming payment object with attributes
+
+One of which is a BankStatement object
+
+--
+
+```perl
+subtype 'BankStatement'
+    => as      'Object'
+    => where   {
+        $_->has_id
+        && (
+            $_->isa( 'PayProp::Model::BankStatement' )
+            || $_->isa( 'PayProp::Model::BankStatement::Internal' )
+        );
+    }
+    => message { $_
+        ? ( $_ . " lacks an id" )
+        : "BankStatement is not defined"
+    }
+;
+```
+
+???
+
+Which we can constrain as this particular type
+
+---
+
+## Business Objects / Model
+
+```perl
+sub fail_payment ( $self ) {
+
+	# some state checking 
+	if ( ! $self->can_be_failed ) {
+		PayProp::Exception::State->throw(
+			"Cannot fail payment because....."
+		)
+	}
+
+	...
+
+	if ( my $BankStatement = $self->statement ) {
+		$BankStatement->mark_failed;
+	}
+
+	...
+}
+```
+
+???
+
+Tell don't ask
+
+---
+
+## Business Objects / Model
+
+* [Moose](https://metacpan.org/pod/Moose)
+
+
+* Issues/Challenges?
+ * Learning curve
+ * Slow startup in a non persistent environment?
+		* CGI scripts
+		* Command line
+ * Mutable state in earlier code
+
+???
+
+The learning curve is worth it, Moose is one of the best object systems available across any language. Adding the MOP (meta object protocol) and the Perl's own introspection features makes it incredibly powerful.
+
+There have been multi day courses at Perl conferences in the past dedicated to Moose. It's impossible for me to even even scratch the surface in this talk
+
+lazy loading for CGI scripts, the command line - live with it, they're run once in a blue moon scripts anyway
+
+Mutable state is my technical debt
+
+---
+
+## Refactoring / Regression Testing
+
+--
+
+* Beyond unit and integration testing
+
+???
+
+We have this for all new code and add to existing code prior to refactoring
+
+Where possible...
+
+--
+
+* Critical business scripts that have existed forever
+ * We want minimal risk when updating/fixing/refactoring
+ * Bootstrapping problem:
+		* Not in a state to allow automated testing
+		* Need to change them to fix that
+		* But that is a risk without automated testing
+
+--
+
+
+* But this is Perl!
+ * Introspection and side loading of overrides
+ * Run scripts with override library paths
+ * Hook into various compile/runtime blocks
+
+---
+
+## Refactoring / Regression Testing
+
+```perl
+package Override::SomeScript;
+
+use strict;
+use warnings;
+
+INIT {
+	no warnings 'redefine';
+
+	# read_text and read_dir are imported into the main namespace so we override
+	# them there and not in File::Slurper. here we return the "passphrase"
+	*main::read_text = sub {
+		return "it's the end of August and we have no AC in the office :(";
+	};
+};
+```
+
+--
+
+```perl
+my $overrides   = "-I$Bin/t/olib/ -MOverride::SomeScript";
+my $cron_script = "some_script.pl";
+
+test_command(
+	'cron script runs (overrides)',
+	"/path/to/our/perl $overrides $cron_script",
+	...
+```
+
+---
+
+## Refactoring / Regression Testing
+
+* More info: [talk by Nicholas Clark](https://www.youtube.com/watch?v=gJPbuNtH8aQ)
+
+???
+
+45min talk going into the details
+
+--
+
+
+* Issues/Challenges?
+ * This approach adds more technical debt
+ * Load order/action at a distance (end up debugging the *tests*)
+
+???
+
+get the script fully tested
+
+refactor to a easier testable state (i.e. modules)
+
+convert these tests to unit tests
 
 ---
 
 ## Contributing to CPAN
 
+![:scale 75%](img/CPAN.png)
+
+???
+
+We actively encourage contributions to CPAN.
+
+These are all distributions we have either written or taken over maintenance of in the last decade
+
+---
+
+## Contributing to CPAN
+
+???
+
+Stuff like
+
+--
+
+* Mojolicious Plugins
+ * Mojolicious::Plugin::NYTProf
+ * Mojolicious::Plugin::OAuth2::Server
+ * Net::OAuth2::AuthorizationServer
+
+--
+
+
+* Third Party Payment API Libraries
+ * Business::GoCardless
+ * Business::Monzo
+ * Business::Fixflo
+ * Business::TrueLayer
+
+--
+
+
+* And other stuff
+
+???
+
+maintaining CGI.pm
+
+forking and updating unmaintained API libraries
+
+
+--
+
+* Issues/Challenges?
+ * The pool of contributors to CPAN is shrinking
+ * Libraries for newer services and APIs don't exist
+ * Navigating around IP issues to get code uploaded
+
+???
+
+Solution - we volunteer to maintain existing distributions
+
+We write libraries for newer services and APIs and upload them to CPAN
+
+Many modern APIs are RESTful so it's trivial to create a library for them
+
+IP concerns encourages us to properly decouple our code from the library code
+
 ---
 
 ## Hiring Devs New to Perl
+
+* Perl has been on the plateau of productivity for quite a while
+
+--
+
+* Those that left Perl a long time ago don't know the current ecosystem
+
+--
+
+* We're more than a generation removed from even Perl 5
+
+--
+
+ * Perl 1 was released in 1987 &lt;- 37 years ago.
+
+ * Perl 5 was released in 1994 &lt;- 30 years ago.
+
+ * Perl 5.10 was released in 2007 &lt;- 17 years ago.
+
+???
+
+5.10 being "modern" Perl
+
+--
+
+* Perl is still in a lot of places
+
+???
+
+Some of these the users can't talk about in public forum like this. Banks, the FANGS. If you're working for a company that won't let you talk about Perl, or you've simply never thought about doing that - ask and do.
+
+the rumors of Perl's demise I think are greatly exaggerated, but it's a known unknown at this point. Speak up.
+
+The system FOSDEM are using to review, annotate, cut, process, transcode, and publish all their videos is written in Modern Perl - https://github.com/yoe/SReview
+
+--
+
+* Its popularity normalised over the last two decades
+
+???
+
+Hate to cite it, as I suspect their methodology is bollocks, but the TIOBE index shows the trend of *all* programming language use steadily approaching a homogenized state. That's probably a good thing - monoculture should be avoided
+
+--
+
+* So it's hard to find "Perl developers". But...
+
+--
+
+* Newcomers don't have preconceptions
+
+---
+
+## Hiring Devs New to Perl
+
+* Newcomers don't have preconceptions?
+
+???
+
+is my experience of interviewing
+
+generally those under 30 either haven't heard of the language
+
+or haven't used it
+
+those who don't want to use the language or don't like it self select out of the hiring process
+
+we are explicit in job specs that we use Perl
+
+but we don't list it as a requirement unless we're asking for a senior Perl developer
+
+--
+
+
+* Modern Perl is a interesting and enjoyable language to work with
+ * Working with legacy code is a reality
+ * That's in no way unique to Perl
+
+--
+
+
+* Mentoring
+* Code Review
+* Workshops
+* Developer Conferences
+* Weekly Show-and-Tell / Talks
+
+???
+
+We do all of this
+
+--
+
+
+* More info: [blog posts](https://leejo.github.io/tags/perl/)
+
+???
+
+I haven't really talked about this previously, but have written a few blog posts that touch upon it
+
+--
+
+
+* You can be very experienced but still a newcomer
+ * That's absolutely fine
+ * In fact, it's beneficial to the ecosystem and community
+
+???
+
+Like me, a newcomer to FOSDEM
+
 
 ---
 
 ## Questions? / References
 
-*QR Code link to talk here*
+![qr_code_link](img/qr_link.png)
 
 This talk is available at: (https://leejo.github.io/code/)
 
@@ -178,7 +864,7 @@ This talk is available at: (https://leejo.github.io/code/)
 
         var slideshow = remark.create({
             highlightLines: true,
-			slideNumberFormat: ""
+			//slideNumberFormat: ""
         });
 
     </script>
