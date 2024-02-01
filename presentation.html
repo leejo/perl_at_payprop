@@ -33,15 +33,21 @@
 
 class: center, middle
 
+![:scale 80%](img/qr_link.png)
+
+---
+
+class: center, middle
+
 # Perl at PayProp
 
-![payprop_logo](img/logo.png)
+![:scale 40%](img/logo.png)
 
 <br />
 
 Lee Johnson (LEEJO / leejo / lee@payprop.com)
 
-(Hit "P" for the notes)
+(Hit "P" for the notes and "?" for help)
 
 ???
 
@@ -357,7 +363,7 @@ About the simplest use case you can have with DBI
 * I much prefer:
 
 ```perl
-if ( my $Property = $ORM->resultset( 'Property' )->find( $id ) ) {
+if ( my $Property = $ORM->rs( 'Property' )->find( $id ) ) {
 	say $Property->foo;
 }
 ```
@@ -457,19 +463,31 @@ Note that *THIS* is our model, the ORM is *NOT* our model
 
 * Classes
  * Abstract
- * Derived (polymorphism)
-* Attribute type constraints
-* Type coercion
-* Encapsulation
+ * Derived (polymorphism / inheritance)
 * Composition (roles)
+* Attribute...
+ * Type Constraints
+ * Type Coercion
+ * Defaults
+ * Triggers
+ * Etc...
+* Encapsulation
 * Immutable state
 * Delegation
+* Meta Object Protocol (MOP)
 * Tell, Don't Ask
+
+???
+
+All this is useful stuff and very powerful
+
+OO done properly
 
 --
 
 
 * [Moose](https://metacpan.org/pod/Moose)
+* [Corinna](https://ovid.github.io/articles/corinna-in-the-perl-core.html) (eventually)
 
 ???
 
